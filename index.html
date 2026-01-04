@@ -111,43 +111,57 @@
         // TRUC DE L'AUDIO SILENCIÓS
         // Quan activem el mode butxaca, iniciem l'audio per enganyar Android
                 // 1. Configurar el "pop-up" de música en el sistema
+                // 1. Configurar el "pop-up" de música amb el test de so
         function setupMediaSession() {
             if ('mediaSession' in navigator) {
                 navigator.mediaSession.metadata = new MediaMetadata({
-                    title: 'Rastrejador de Mapa Actiu',
-                    artist: 'Piedra Sheikah',
-                    album: 'Exploració',
-                    artwork: [
-                        { src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }
-                    ]
+                    title: 'TEST DE SO - Piedra Sheikah',
+                    artist: 'Zelda Tracker',
+                    album: 'Debug Mode',
+                    artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }]
                 });
 
-                // Això manté la sessió "viva" encara que no hi hagi so real
                 navigator.mediaSession.setActionHandler('play', () => silentAudio.play());
                 navigator.mediaSession.setActionHandler('pause', () => silentAudio.pause());
             }
         }
 
-        // 2. Funció de bloqueig actualitzada
+        // 2. Funció de bloqueig amb BEEP de prova
         function togglePocketMode() {
             pocketOverlay.classList.toggle('active');
             
             if(pocketOverlay.classList.contains('active')){
-                // Intentem reproduir l'audio amb una interacció directa
+                // CANVI: En lloc d'un fitxer base64, fem un "Beep" sintètic que Android no pot ignorar
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                function playBeep() {
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.value = 440; // Nota La
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volum baixet
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.2); // Dura 0.2 segons
+                }
+
+                // Intentem reproduir l'àudio de l'etiqueta també per forçar el pop-up
                 silentAudio.play().then(() => {
-                    setupMediaSession(); // Activem el control de música al sistema
-                    console.log("Audio silenciós actiu - GPS protegit");
-                    statusDisplay.innerText = "Mode 2n pla actiu";
+                    setupMediaSession();
+                    // Fem un beep cada 10 segons per saber si segueix viu a la butxaca
+                    window.beepInterval = setInterval(playBeep, 10000);
+                    statusDisplay.innerText = "TEST DE SO ACTIU";
                 }).catch(e => {
-                    console.log("Error audio:", e);
-                    // Si falla, avisem que cal una interacció
-                    alert("Toca qualsevol part del mapa abans de bloquejar per activar el rastreig.");
+                    alert("Error: Fes clic al mapa abans d'activar el candau!");
                 });
             } else {
                 silentAudio.pause();
+                if(window.beepInterval) clearInterval(window.beepInterval);
                 statusDisplay.innerText = "Sincronitzat";
             }
         }
+
 
         // --- GPS I MAPA (Idèntic a l'anterior) ---
         let visitedPoints = JSON.parse(localStorage.getItem('zelda_map_progress')) || [];
