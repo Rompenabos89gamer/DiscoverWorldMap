@@ -25,24 +25,28 @@
             z-index: 2; pointer-events: none; opacity: 0.92;
         }
 
-        /* --- MARCADOR FLECHA ZELDA --- */
-        .zelda-arrow {
+                .zelda-arrow {
             width: 0;
             height: 0;
             border-left: 10px solid transparent;
             border-right: 10px solid transparent;
-            border-bottom: 25px solid #ffeb3b; /* Amarillo Zelda */
-            filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Cian Sheikah */
+            border-bottom: 25px solid #ffeb3b; /* Cuerpo Amarillo */
+            filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Sheikah */
             position: relative;
         }
-                .zelda-arrow {
+
+        /* El detalle azul pequeño en la base, rotado correctamente */
+        .zelda-arrow::after {
+            content: '';
+            position: absolute;
+            top: 15px; /* Posicionado dentro de la flecha amarilla */
+            left: -6px;
             width: 0;
             height: 0;
-            border-left: 12px solid transparent;
-            border-right: 12px solid transparent;
-            border-bottom: 28px solid #ffeb3b; /* Amarillo Zelda */
-            filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Cian Sheikah */
-            position: relative;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid #00f2ff; /* Triángulo azul apuntando hacia abajo */
+            opacity: 0.8;
         }
 
         /* El triángulo que hace el recorte en la base */
