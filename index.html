@@ -25,12 +25,12 @@
             z-index: 2; pointer-events: none; opacity: 0.92;
         }
 
-                .zelda-arrow {
+        .zelda-arrow {
             width: 0;
             height: 0;
             border-left: 10px solid transparent;
             border-right: 10px solid transparent;
-            border-bottom: 25px solid #ffeb3b; /* Cuerpo Amarillo */
+            bottom: 25px solid #ffeb3b; /* Cuerpo Amarillo */
             filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Sheikah */
             position: relative;
         }
@@ -40,26 +40,13 @@
             content: '';
             position: absolute;
             top: 15px; /* Posicionado dentro de la flecha amarilla */
-            left: -6px;
+            left: 6px;
             width: 0;
             height: 0;
             border-left: 6px solid transparent;
             border-right: 6px solid transparent;
             border-top: 8px solid #00f2ff; /* Triángulo azul apuntando hacia abajo */
             opacity: 0.8;
-        }
-
-        /* El triángulo que hace el recorte en la base */
-        .zelda-arrow::after {
-            content: '';
-            position: absolute;
-            top: 18px; /* Ajustado para que encaje en la base */
-            left: -12px;
-            width: 0;
-            height: 0;
-            border-left: 12px solid transparent;
-            border-right: 12px solid transparent;
-            border-bottom: 10px solid #000; /* Color del fondo para "recortar" */
         }
 
         .ui-panel {
