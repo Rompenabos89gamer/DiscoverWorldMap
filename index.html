@@ -112,55 +112,63 @@
         // Quan activem el mode butxaca, iniciem l'audio per enganyar Android
                 // 1. Configurar el "pop-up" de música en el sistema
                 // 1. Configurar el "pop-up" de música amb el test de so
-        function setupMediaSession() {
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: 'TEST DE SO - Piedra Sheikah',
-                    artist: 'Zelda Tracker',
-                    album: 'Debug Mode',
-                    artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }]
-                });
+        <audio id="silent-audio" loop playsinline>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+</audio>
 
-                navigator.mediaSession.setActionHandler('play', () => silentAudio.play());
-                navigator.mediaSession.setActionHandler('pause', () => silentAudio.pause());
-            }
+<script>
+    // ... manté les constants (canvas, ctx, etc.) igual ...
+
+    function setupMediaSession() {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: '🛡️ RASTREIG ACTIU (Piedra Sheikah)',
+                artist: 'Exploració del Món',
+                album: 'Zelda Map',
+                artwork: [
+                    { src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }
+                ]
+            });
+
+            // Això enllaça els botons del pop-up amb l'àudio
+            navigator.mediaSession.setActionHandler('play', () => silentAudio.play());
+            navigator.mediaSession.setActionHandler('pause', () => silentAudio.pause());
         }
+    }
 
-        // 2. Funció de bloqueig amb BEEP de prova
-        function togglePocketMode() {
-            pocketOverlay.classList.toggle('active');
+    function togglePocketMode() {
+        pocketOverlay.classList.toggle('active');
+        
+        if(pocketOverlay.classList.contains('active')){
+            // Baixem el volum al mínim perquè no molestia la música de prova
+            silentAudio.volume = 0.01; 
             
-            if(pocketOverlay.classList.contains('active')){
-                // CANVI: En lloc d'un fitxer base64, fem un "Beep" sintètic que Android no pot ignorar
-                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            silentAudio.play().then(() => {
+                setupMediaSession();
+                statusDisplay.innerText = "GPS PROTEGIT (2N PLA)";
                 
-                function playBeep() {
-                    let osc = audioCtx.createOscillator();
-                    let gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.type = 'sine';
-                    osc.frequency.value = 440; // Nota La
-                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Volum baixet
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.2); // Dura 0.2 segons
+                // Forcem el WakeLock de pantalla mentre estigui el mode actiu
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').catch(() => {});
                 }
-
-                // Intentem reproduir l'àudio de l'etiqueta també per forçar el pop-up
-                silentAudio.play().then(() => {
-                    setupMediaSession();
-                    // Fem un beep cada 10 segons per saber si segueix viu a la butxaca
-                    window.beepInterval = setInterval(playBeep, 10000);
-                    statusDisplay.innerText = "TEST DE SO ACTIU";
-                }).catch(e => {
-                    alert("Error: Fes clic al mapa abans d'activar el candau!");
-                });
-            } else {
-                silentAudio.pause();
-                if(window.beepInterval) clearInterval(window.beepInterval);
-                statusDisplay.innerText = "Sincronitzat";
-            }
+            }).catch(e => {
+                // Si falla, vol dir que Chrome encara bloqueja el so
+                alert("Primer toca qualsevol lloc del mapa per donar permís de so!");
+                pocketOverlay.classList.remove('active');
+            });
+        } else {
+            silentAudio.pause();
+            statusDisplay.innerText = "Sincronitzat";
         }
+    }
+
+    // Afegeix això perquè el pop-up no marxi si canvies d'app
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === 'visible' && !silentAudio.paused) {
+            setupMediaSession();
+        }
+    });
+</script>
 
 
         // --- GPS I MAPA (Idèntic a l'anterior) ---
