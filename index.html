@@ -110,17 +110,42 @@
 
         // TRUC DE L'AUDIO SILENCIÓS
         // Quan activem el mode butxaca, iniciem l'audio per enganyar Android
+                // 1. Configurar el "pop-up" de música en el sistema
+        function setupMediaSession() {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: 'Rastrejador de Mapa Actiu',
+                    artist: 'Piedra Sheikah',
+                    album: 'Exploració',
+                    artwork: [
+                        { src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }
+                    ]
+                });
+
+                // Això manté la sessió "viva" encara que no hi hagi so real
+                navigator.mediaSession.setActionHandler('play', () => silentAudio.play());
+                navigator.mediaSession.setActionHandler('pause', () => silentAudio.pause());
+            }
+        }
+
+        // 2. Funció de bloqueig actualitzada
         function togglePocketMode() {
             pocketOverlay.classList.toggle('active');
             
             if(pocketOverlay.classList.contains('active')){
-                // Intentem reproduir l'audio
+                // Intentem reproduir l'audio amb una interacció directa
                 silentAudio.play().then(() => {
+                    setupMediaSession(); // Activem el control de música al sistema
                     console.log("Audio silenciós actiu - GPS protegit");
-                }).catch(e => console.log("Error audio:", e));
+                    statusDisplay.innerText = "Mode 2n pla actiu";
+                }).catch(e => {
+                    console.log("Error audio:", e);
+                    // Si falla, avisem que cal una interacció
+                    alert("Toca qualsevol part del mapa abans de bloquejar per activar el rastreig.");
+                });
             } else {
-                // Si tornem a mirar el mapa, pausem per no gastar recursos
                 silentAudio.pause();
+                statusDisplay.innerText = "Sincronitzat";
             }
         }
 
