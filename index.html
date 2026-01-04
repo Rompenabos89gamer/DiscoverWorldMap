@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Piedra Sheikah</title>
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: 'Palatino', serif; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
+
+        .leaflet-tile-pane {
+            filter: sepia(100%) contrast(1.1) brightness(0.8) hue-rotate(330deg);
+        }
+
+        #fogCanvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2; pointer-events: none; opacity: 0.92;
+        }
+
+        /* Interfaz estilo Zelda */
+        .ui-panel {
+            position: absolute; top: env(safe-area-inset-top, 10px); left: 10px; z-index: 10;
+            background: rgba(10, 20, 30, 0.8);
+            color: #e6d6ad; padding: 12px;
+            border: 2px solid #e6d6ad;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            min-width: 150px;
+        }
+
+        .percentage-container {
+            font-size: 24px; font-weight: bold; color: #00f2ff;
+            text-shadow: 0 0 10px #00f2ff;
+        }
+
+        .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+        #reset-btn {
+            position: absolute; bottom: 20px; right: 20px; z-index: 10;
+            background: rgba(200, 0, 0, 0.5); color: white; border: 1px solid white;
+            padding: 5px; font-size: 10px; border-radius: 50%; width: 40px; height: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    <canvas id="fogCanvas"></canvas>
+    
+    <div class="ui-panel">
+        <div class="label">Exploración del Mundo</div>
+        <div id="percentage" class="percentage-container">0.0000%</div>
+        <div id="status" style="font-size: 12px; margin-top: 5px;">Sincronizando...</div>
+    </div>
+
+    <button id="reset-btn" onclick="resetProgress()">RESET</button>
+
+    <script>
+        const canvas = document.getElementById('fogCanvas');
+        const ctx = canvas.getContext('2d');
+        const percentDisplay = document.getElementById('percentage');
+        const statusDisplay = document.getElementById('status');
+
+        // 1. CARGAR PROGRESO LOCAL
+        let visitedPoints = JSON.parse(localStorage.getItem('zelda_map_progress')) || [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawFog();
+        }
+
+        // 2. CONFIGURAR MAPA
+        var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([0, 0], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+                // Nueva función para calcular el radio en píxeles según el zoom
+        // Queremos que el radio represente siempre unos ~500 metros
+        function getRadiusPx() {
+            const zoom = map.getZoom();
+            // Esta fórmula ajusta el radio para que sea coherente al hacer zoom
+            // En zoom 16 (calle), el radio será de unos 80-100 píxeles.
+            return Math.pow(2, zoom - 16) * 100;
+        }
+
+        function drawFog() {
+            // 1. Limpiar y pintar fondo negro
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Cambiar a modo "borrador"
+            ctx.globalCompositeOperation = 'destination-out';
+            
+            // Efecto de difuminado (glow)
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = 'black';
+
+            // 3. Dibujar cada punto visitado con el radio corregido
+            const radius = getRadiusPx();
+
+            visitedPoints.forEach(point => {
+                // Solo dibujamos si el punto está dentro de la vista actual (optimización)
+                const latLng = L.latLng(point.lat, point.lng);
+                if (map.getBounds().pad(0.2).contains(latLng)) { 
+                    const screenPos = map.latLngToContainerPoint(latLng);
+                    
+                    ctx.beginPath();
+                    // Usamos el radio dinámico basado en el zoom
+                    ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            calculatePercentage();
+        }
+
+
+        // 3. LÓGICA DE PORCENTAJE
+        // El mundo tiene aprox 510 millones de km2. 
+        // Cada punto descubre un radio de ~100m (0.03 km2 aprox)
+        function calculatePercentage() {
+            const areaPerPoint = 0.0314; 
+            const worldArea = 510072000; 
+            let totalExplored = visitedPoints.length * areaPerPoint;
+            let percent = (totalExplored / worldArea) * 100;
+            // Mostramos muchos decimales porque el mundo es gigante
+            percentDisplay.innerText = percent.toFixed(7) + "%";
+        }
+
+        // 4. GPS Y PERSISTENCIA
+        map.locate({watch: true, enableHighAccuracy: true});
+
+        map.on('locationfound', (e) => {
+            const newPos = {lat: e.latlng.lat, lng: e.latlng.lng};
+            
+            // Guardar solo si nos movemos más de 15 metros para no llenar la memoria innecesariamente
+            if (visitedPoints.length === 0 || e.latlng.distanceTo(visitedPoints[visitedPoints.length-1]) > 15) {
+                visitedPoints.push(newPos);
+                localStorage.setItem('zelda_map_progress', JSON.stringify(visitedPoints));
+                statusDisplay.innerText = "Ubicación actualizada";
+            }
+
+            map.panTo(e.latlng);
+            drawFog();
+        });
+
+        function resetProgress() {
+            if(confirm("¿Seguro que quieres borrar todo el mapa descubierto?")) {
+                visitedPoints = [];
+                localStorage.removeItem('zelda_map_progress');
+                location.reload();
+            }
+        }
+
+        map.on('move', drawFog);
+        window.addEventListener('resize', resize);
+        resize();
+
+    </script>
+    <script>
+    // Esto registra un "Service Worker" para que la app cargue offline
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('https://cdn.jsdelivr.net/npm/pwacompat@2.0.9/pwacompat.min.js');
+      });
+    }
+</script>
+</body>
+</html>
