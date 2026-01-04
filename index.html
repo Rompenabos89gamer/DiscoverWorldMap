@@ -35,14 +35,27 @@
             filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Cian Sheikah */
             position: relative;
         }
+                .zelda-arrow {
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-bottom: 28px solid #ffeb3b; /* Amarillo Zelda */
+            filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Cian Sheikah */
+            position: relative;
+        }
+
+        /* El triángulo que hace el recorte en la base */
         .zelda-arrow::after {
             content: '';
             position: absolute;
-            top: 22px; left: -10px;
-            width: 0; height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 8px solid rgba(0, 242, 255, 0.5);
+            top: 18px; /* Ajustado para que encaje en la base */
+            left: -12px;
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-bottom: 10px solid #000; /* Color del fondo para "recortar" */
         }
 
         .ui-panel {
