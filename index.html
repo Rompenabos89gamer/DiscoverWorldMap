@@ -25,31 +25,29 @@
             z-index: 2; pointer-events: none; opacity: 0.92;
         }
 
-        /* --- MARCADOR FLECHA ZELDA--- */
+        /* --- MARCADOR FLECHA ZELDA --- */
         .zelda-arrow {
             width: 0;
             height: 0;
             border-left: 10px solid transparent;
             border-right: 10px solid transparent;
-            border-bottom: 25px solid #ffeb3b; /* Cuerpo Amarillo */
-            filter: drop-shadow(0 0 5px #00f2ff); /* Brillo Sheikah */
+            border-bottom: 25px solid #ffeb3b; 
+            filter: drop-shadow(0 0 5px #00f2ff); 
             position: relative;
         }
 
-        /* El detalle azul pequeño en la base, rotado correctamente */
         .zelda-arrow::after {
             content: '';
             position: absolute;
-            top: 15px; /* Posicionado dentro de la flecha amarilla */
-            left: -6px;
+            top: -6px; 
+            left: 15px;
             width: 0;
             height: 0;
             border-left: 6px solid transparent;
             border-right: 6px solid transparent;
-            border-top: 8px solid #00f2ff; /* Triángulo azul apuntando hacia abajo */
+            border-top: 8px solid #00f2ff; 
             opacity: 0.8;
         }
-
 
         .ui-panel {
             position: absolute; top: env(safe-area-inset-top, 10px); left: 10px; z-index: 10;
@@ -92,8 +90,18 @@
         const percentDisplay = document.getElementById('percentage');
         const statusDisplay = document.getElementById('status');
 
+        // Variables de estado
         let visitedPoints = JSON.parse(localStorage.getItem('zelda_map_progress')) || [];
+        // Creamos un SET para guardar sectores únicos (evita duplicados en el % de mapa)
+        let uniqueSectors = new Set();
         var userMarker = null;
+
+        // 1. INICIALIZACIÓN: Recalcular sectores únicos al abrir la app
+        // Esto corrige el porcentaje si ya tenías datos guardados con el bug
+        visitedPoints.forEach(point => {
+            addSector(point.lat, point.lng);
+        });
+        calculatePercentage(); // Mostrar porcentaje corregido al inicio
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -101,7 +109,6 @@
             drawFog();
         }
 
-        // Configurar Mapa
         var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([0, 0], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -120,34 +127,49 @@
             ctx.shadowColor = 'black';
 
             const radius = getRadiusPx();
+            
+            // Optimización: Solo dibujamos puntos visibles en pantalla
+            const bounds = map.getBounds().pad(0.2);
+
             visitedPoints.forEach(point => {
                 const latLng = L.latLng(point.lat, point.lng);
-                if (map.getBounds().pad(0.2).contains(latLng)) { 
+                if (bounds.contains(latLng)) { 
                     const screenPos = map.latLngToContainerPoint(latLng);
                     ctx.beginPath();
                     ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
                     ctx.fill();
                 }
             });
-            calculatePercentage();
+        }
+
+        // --- NUEVA LÓGICA DE PORCENTAJE SIN DUPLICADOS ---
+        function addSector(lat, lng) {
+            // Redondeamos a 3 decimales (aprox 110m x 110m cada sector)
+            // Esto crea una cuadrícula invisible. Si estás en el mismo cuadro, el ID es el mismo.
+            const sectorID = lat.toFixed(3) + "_" + lng.toFixed(3);
+            uniqueSectors.add(sectorID);
         }
 
         function calculatePercentage() {
-            const areaPerPoint = 0.0314; 
+            // Cada sector de 0.001 grados es aprox 0.012 km2 en el ecuador
+            // Usamos el tamaño del SET (uniqueSectors.size) en lugar del Array de puntos
+            const areaPerSector = 0.012; 
             const worldArea = 510072000; 
-            let totalExplored = visitedPoints.length * areaPerPoint;
+            
+            let totalExplored = uniqueSectors.size * areaPerSector;
             let percent = (totalExplored / worldArea) * 100;
+            
             percentDisplay.innerText = percent.toFixed(7) + "%";
         }
 
-        // GPS Y FLECHA
+        // --- GPS ---
         map.locate({watch: true, enableHighAccuracy: true});
 
         map.on('locationfound', (e) => {
             const newPos = {lat: e.latlng.lat, lng: e.latlng.lng};
-            
-            // Actualizar o crear la flecha
-            const heading = e.heading || 0; // Rotación según el GPS
+            const heading = (e.heading !== null) ? e.heading : 0;
+
+            // Marcador Flecha
             const arrowIcon = L.divIcon({
                 className: 'custom-div-icon',
                 html: `<div class="zelda-arrow" style="transform: rotate(${heading}deg);"></div>`,
@@ -162,11 +184,16 @@
                 userMarker.setIcon(arrowIcon);
             }
 
-            // Guardar progreso
+            // Guardar punto solo si nos hemos movido (Para el dibujo visual suave)
             if (visitedPoints.length === 0 || e.latlng.distanceTo(visitedPoints[visitedPoints.length-1]) > 15) {
                 visitedPoints.push(newPos);
+                
+                // Actualizamos el sector para el porcentaje (esto filtrará duplicados automáticamente)
+                addSector(e.latlng.lat, e.latlng.lng);
+                calculatePercentage();
+
                 localStorage.setItem('zelda_map_progress', JSON.stringify(visitedPoints));
-                statusDisplay.innerText = "Ubicación actualizada";
+                statusDisplay.innerText = "Sincronizado";
             }
 
             map.panTo(e.latlng);
@@ -176,6 +203,7 @@
         function resetProgress() {
             if(confirm("¿Borrar progreso?")) {
                 visitedPoints = [];
+                uniqueSectors.clear();
                 localStorage.removeItem('zelda_map_progress');
                 location.reload();
             }
@@ -184,6 +212,20 @@
         map.on('move', drawFog);
         window.addEventListener('resize', resize);
         resize();
+
+    </script>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+      // Forzar actualización al cargar
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) { registration.update(); }
+      });
+      
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('https://cdn.jsdelivr.net/npm/pwacompat@2.0.9/pwacompat.min.js');
+      });
+    }
     </script>
 </body>
 </html>
