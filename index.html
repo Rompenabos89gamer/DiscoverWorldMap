@@ -11,7 +11,6 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="manifest" href="manifest.json">
     
     <style>
         body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: 'Palatino', serif; user-select: none; }
@@ -26,7 +25,6 @@
             z-index: 2; pointer-events: none; opacity: 0.92;
         }
 
-        /* --- MARCADOR FLECHA ZELDA --- */
         .zelda-arrow {
             width: 0; height: 0;
             border-left: 10px solid transparent; border-right: 10px solid transparent;
@@ -72,7 +70,6 @@
         #pocket-overlay.active { display: flex; }
         .saver-icon { font-size: 50px; opacity: 0.3; margin-bottom: 20px; }
         .saver-text { font-family: monospace; opacity: 0.3; }
-
     </style>
 </head>
 <body>
@@ -81,7 +78,7 @@
     <canvas id="fogCanvas"></canvas>
     
     <audio id="silent-audio" loop playsinline>
-        <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjIwLjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjE4LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjE4LjEwMAAAAAAAAAAAAAAAJFT/848AAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" type="audio/mpeg">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
     </audio>
 
     <div class="ui-panel">
@@ -97,7 +94,7 @@
 
     <div id="pocket-overlay" ondblclick="togglePocketMode()">
         <div class="saver-icon">🛡️</div>
-        <div class="saver-text">MODE 2N PLA ACTIVAT<br>Audio Silent Actiu<br>Doble clic per desbloquejar</div>
+        <div class="saver-text">MODE 2N PLA ACTIVAT<br>GPS Protegit<br>Doble clic per tornar</div>
     </div>
 
     <script>
@@ -108,70 +105,47 @@
         const pocketOverlay = document.getElementById('pocket-overlay');
         const silentAudio = document.getElementById('silent-audio');
 
-        // TRUC DE L'AUDIO SILENCIÓS
-        // Quan activem el mode butxaca, iniciem l'audio per enganyar Android
-                // 1. Configurar el "pop-up" de música en el sistema
-                // 1. Configurar el "pop-up" de música amb el test de so
-        <audio id="silent-audio" loop playsinline>
-    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
-</audio>
+        let wakeLock = null;
 
-<script>
-    // ... manté les constants (canvas, ctx, etc.) igual ...
+        // 1. Configurar el "pop-up" de música en el sistema
+        function setupMediaSession() {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: '🛡️ RASTREIG ACTIU (Piedra Sheikah)',
+                    artist: 'Exploració del Món',
+                    album: 'Zelda Map',
+                    artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }]
+                });
 
-    function setupMediaSession() {
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: '🛡️ RASTREIG ACTIU (Piedra Sheikah)',
-                artist: 'Exploració del Món',
-                album: 'Zelda Map',
-                artwork: [
-                    { src: 'https://cdn-icons-png.flaticon.com/512/94/94674.png', sizes: '512x512', type: 'image/png' }
-                ]
-            });
-
-            // Això enllaça els botons del pop-up amb l'àudio
-            navigator.mediaSession.setActionHandler('play', () => silentAudio.play());
-            navigator.mediaSession.setActionHandler('pause', () => silentAudio.pause());
+                navigator.mediaSession.setActionHandler('play', () => silentAudio.play());
+                navigator.mediaSession.setActionHandler('pause', () => silentAudio.pause());
+            }
         }
-    }
 
-    function togglePocketMode() {
-        pocketOverlay.classList.toggle('active');
-        
-        if(pocketOverlay.classList.contains('active')){
-            // Baixem el volum al mínim perquè no molestia la música de prova
-            silentAudio.volume = 0.01; 
+        // 2. Funció del Candau
+        async function togglePocketMode() {
+            pocketOverlay.classList.toggle('active');
             
-            silentAudio.play().then(() => {
-                setupMediaSession();
-                statusDisplay.innerText = "GPS PROTEGIT (2N PLA)";
-                
-                // Forcem el WakeLock de pantalla mentre estigui el mode actiu
-                if ('wakeLock' in navigator) {
-                    navigator.wakeLock.request('screen').catch(() => {});
-                }
-            }).catch(e => {
-                // Si falla, vol dir que Chrome encara bloqueja el so
-                alert("Primer toca qualsevol lloc del mapa per donar permís de so!");
-                pocketOverlay.classList.remove('active');
-            });
-        } else {
-            silentAudio.pause();
-            statusDisplay.innerText = "Sincronitzat";
+            if(pocketOverlay.classList.contains('active')){
+                silentAudio.volume = 0.01; 
+                silentAudio.play().then(() => {
+                    setupMediaSession();
+                    statusDisplay.innerText = "GPS PROTEGIT (2N PLA)";
+                    if ('wakeLock' in navigator) {
+                        navigator.wakeLock.request('screen').then(lock => { wakeLock = lock; }).catch(() => {});
+                    }
+                }).catch(e => {
+                    alert("Toca el mapa primer per habilitar el so!");
+                    pocketOverlay.classList.remove('active');
+                });
+            } else {
+                silentAudio.pause();
+                if (wakeLock) { wakeLock.release(); wakeLock = null; }
+                statusDisplay.innerText = "Sincronizado";
+            }
         }
-    }
 
-    // Afegeix això perquè el pop-up no marxi si canvies d'app
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === 'visible' && !silentAudio.paused) {
-            setupMediaSession();
-        }
-    });
-</script>
-
-
-        // --- GPS I MAPA (Idèntic a l'anterior) ---
+        // --- LÒGICA DEL MAPA ---
         let visitedPoints = JSON.parse(localStorage.getItem('zelda_map_progress')) || [];
         let uniqueSectors = new Set();
         var userMarker = null;
@@ -225,7 +199,6 @@
         map.locate({watch: true, enableHighAccuracy: true});
 
         map.on('locationfound', (e) => {
-            const newPos = {lat: e.latlng.lat, lng: e.latlng.lng};
             const heading = (e.heading !== null) ? e.heading : 0;
             const arrowIcon = L.divIcon({
                 className: 'custom-div-icon',
@@ -240,11 +213,10 @@
             }
 
             if (visitedPoints.length === 0 || e.latlng.distanceTo(visitedPoints[visitedPoints.length-1]) > 15) {
-                visitedPoints.push(newPos);
+                visitedPoints.push({lat: e.latlng.lat, lng: e.latlng.lng});
                 addSector(e.latlng.lat, e.latlng.lng);
                 calculatePercentage();
                 localStorage.setItem('zelda_map_progress', JSON.stringify(visitedPoints));
-                statusDisplay.innerText = "Sincronizado";
             }
             map.panTo(e.latlng);
             drawFog();
@@ -256,16 +228,8 @@
                 localStorage.removeItem('zelda_map_progress'); location.reload();
             }
         }
+
         map.on('move', drawFog); window.addEventListener('resize', resize); resize();
-    </script>
-    
-    <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) { for(let reg of regs) { reg.update(); } });
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('https://cdn.jsdelivr.net/npm/pwacompat@2.0.9/pwacompat.min.js');
-      });
-    }
     </script>
 </body>
 </html>
