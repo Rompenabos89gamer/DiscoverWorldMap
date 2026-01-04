@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="ca">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,13 +7,14 @@
     
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="manifest" href="manifest.json">
     
     <style>
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: 'Palatino', serif; }
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: 'Palatino', serif; user-select: none; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; z-index: 1; }
 
         .leaflet-tile-pane {
@@ -27,33 +28,19 @@
 
         /* --- MARCADOR FLECHA ZELDA --- */
         .zelda-arrow {
-            width: 0;
-            height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-bottom: 25px solid #ffeb3b; 
-            filter: drop-shadow(0 0 5px #00f2ff); 
-            position: relative;
+            width: 0; height: 0;
+            border-left: 10px solid transparent; border-right: 10px solid transparent;
+            border-bottom: 25px solid #ffeb3b; filter: drop-shadow(0 0 5px #00f2ff); position: relative;
         }
-
         .zelda-arrow::after {
-          content: '';
-          position: absolute;
-          top: 15px;
-          left: -6px;
-          width: 0;
-          height: 0;
-      
-          border-left: 6px solid transparent;
-          border-right: 6px solid transparent;
-          border-bottom: 8px solid #00f2ff;
-          opacity: 0.8;
-      }
+            content: ''; position: absolute; top: 15px; left: -6px; width: 0; height: 0;
+            border-left: 6px solid transparent; border-right: 6px solid transparent;
+            border-top: 8px solid #00f2ff; opacity: 0.8;
+        }
 
         .ui-panel {
             position: absolute; top: env(safe-area-inset-top, 10px); left: 10px; z-index: 10;
-            background: rgba(10, 20, 30, 0.8);
-            color: #e6d6ad; padding: 12px;
+            background: rgba(10, 20, 30, 0.8); color: #e6d6ad; padding: 12px;
             border: 2px solid #e6d6ad; border-radius: 5px;
             box-shadow: 0 0 15px rgba(0,0,0,0.5); min-width: 150px;
         }
@@ -65,11 +52,27 @@
 
         .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
 
-        #reset-btn {
-            position: absolute; bottom: 20px; right: 20px; z-index: 10;
-            background: rgba(200, 0, 0, 0.5); color: white; border: 1px solid white;
-            padding: 5px; font-size: 10px; border-radius: 50%; width: 40px; height: 40px;
+        .btn-group {
+            position: absolute; bottom: 30px; right: 20px; z-index: 10;
+            display: flex; flex-direction: column; gap: 10px;
         }
+
+        .sheikah-btn {
+            background: rgba(0, 0, 0, 0.7); color: #00f2ff; border: 1px solid #00f2ff;
+            padding: 10px; border-radius: 50%; width: 50px; height: 50px;
+            font-size: 20px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.3); cursor: pointer;
+        }
+        
+        #pocket-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 9999; color: #333;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        #pocket-overlay.active { display: flex; }
+        .saver-icon { font-size: 50px; opacity: 0.3; margin-bottom: 20px; }
+        .saver-text { font-family: monospace; opacity: 0.3; }
+
     </style>
 </head>
 <body>
@@ -77,32 +80,57 @@
     <div id="map"></div>
     <canvas id="fogCanvas"></canvas>
     
+    <audio id="silent-audio" loop playsinline>
+        <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjIwLjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjE4LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjE4LjEwMAAAAAAAAAAAAAAAJFT/848AAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//OEZAAAAABTMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" type="audio/mpeg">
+    </audio>
+
     <div class="ui-panel">
         <div class="label">Exploración del Mundo</div>
         <div id="percentage" class="percentage-container">0.0000%</div>
         <div id="status" style="font-size: 12px; margin-top: 5px;">Sincronizando...</div>
     </div>
 
-    <button id="reset-btn" onclick="resetProgress()">RESET</button>
+    <div class="btn-group">
+        <button class="sheikah-btn" onclick="togglePocketMode()">🔒</button>
+        <button class="sheikah-btn" onclick="resetProgress()" style="color:red; border-color:red;">✕</button>
+    </div>
+
+    <div id="pocket-overlay" ondblclick="togglePocketMode()">
+        <div class="saver-icon">🛡️</div>
+        <div class="saver-text">MODE 2N PLA ACTIVAT<br>Audio Silent Actiu<br>Doble clic per desbloquejar</div>
+    </div>
 
     <script>
         const canvas = document.getElementById('fogCanvas');
         const ctx = canvas.getContext('2d');
         const percentDisplay = document.getElementById('percentage');
         const statusDisplay = document.getElementById('status');
+        const pocketOverlay = document.getElementById('pocket-overlay');
+        const silentAudio = document.getElementById('silent-audio');
 
-        // Variables de estado
+        // TRUC DE L'AUDIO SILENCIÓS
+        // Quan activem el mode butxaca, iniciem l'audio per enganyar Android
+        function togglePocketMode() {
+            pocketOverlay.classList.toggle('active');
+            
+            if(pocketOverlay.classList.contains('active')){
+                // Intentem reproduir l'audio
+                silentAudio.play().then(() => {
+                    console.log("Audio silenciós actiu - GPS protegit");
+                }).catch(e => console.log("Error audio:", e));
+            } else {
+                // Si tornem a mirar el mapa, pausem per no gastar recursos
+                silentAudio.pause();
+            }
+        }
+
+        // --- GPS I MAPA (Idèntic a l'anterior) ---
         let visitedPoints = JSON.parse(localStorage.getItem('zelda_map_progress')) || [];
-        // Creamos un SET para guardar sectores únicos (evita duplicados en el % de mapa)
         let uniqueSectors = new Set();
         var userMarker = null;
 
-        // 1. INICIALIZACIÓN: Recalcular sectores únicos al abrir la app
-        // Esto corrige el porcentaje si ya tenías datos guardados con el bug
-        visitedPoints.forEach(point => {
-            addSector(point.lat, point.lng);
-        });
-        calculatePercentage(); // Mostrar porcentaje corregido al inicio
+        visitedPoints.forEach(point => { addSector(point.lat, point.lng); });
+        calculatePercentage(); 
 
         function resize() {
             canvas.width = window.innerWidth;
@@ -122,107 +150,71 @@
             ctx.globalCompositeOperation = 'source-over';
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = 'black';
-
+            ctx.shadowBlur = 30; ctx.shadowColor = 'black';
             const radius = getRadiusPx();
-            
-            // Optimización: Solo dibujamos puntos visibles en pantalla
             const bounds = map.getBounds().pad(0.2);
-
             visitedPoints.forEach(point => {
                 const latLng = L.latLng(point.lat, point.lng);
                 if (bounds.contains(latLng)) { 
                     const screenPos = map.latLngToContainerPoint(latLng);
-                    ctx.beginPath();
-                    ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.beginPath(); ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2); ctx.fill();
                 }
             });
         }
 
-        // --- NUEVA LÓGICA DE PORCENTAJE SIN DUPLICADOS ---
         function addSector(lat, lng) {
-            // Redondeamos a 3 decimales (aprox 110m x 110m cada sector)
-            // Esto crea una cuadrícula invisible. Si estás en el mismo cuadro, el ID es el mismo.
             const sectorID = lat.toFixed(3) + "_" + lng.toFixed(3);
             uniqueSectors.add(sectorID);
         }
 
         function calculatePercentage() {
-            // Cada sector de 0.001 grados es aprox 0.012 km2 en el ecuador
-            // Usamos el tamaño del SET (uniqueSectors.size) en lugar del Array de puntos
-            const areaPerSector = 0.012; 
-            const worldArea = 510072000; 
-            
+            const areaPerSector = 0.012; const worldArea = 510072000; 
             let totalExplored = uniqueSectors.size * areaPerSector;
             let percent = (totalExplored / worldArea) * 100;
-            
             percentDisplay.innerText = percent.toFixed(7) + "%";
         }
 
-        // --- GPS ---
         map.locate({watch: true, enableHighAccuracy: true});
 
         map.on('locationfound', (e) => {
             const newPos = {lat: e.latlng.lat, lng: e.latlng.lng};
             const heading = (e.heading !== null) ? e.heading : 0;
-
-            // Marcador Flecha
             const arrowIcon = L.divIcon({
                 className: 'custom-div-icon',
                 html: `<div class="zelda-arrow" style="transform: rotate(${heading}deg);"></div>`,
-                iconSize: [20, 25],
-                iconAnchor: [10, 12]
+                iconSize: [20, 25], iconAnchor: [10, 12]
             });
 
             if (!userMarker) {
                 userMarker = L.marker(e.latlng, {icon: arrowIcon}).addTo(map);
             } else {
-                userMarker.setLatLng(e.latlng);
-                userMarker.setIcon(arrowIcon);
+                userMarker.setLatLng(e.latlng); userMarker.setIcon(arrowIcon);
             }
 
-            // Guardar punto solo si nos hemos movido (Para el dibujo visual suave)
             if (visitedPoints.length === 0 || e.latlng.distanceTo(visitedPoints[visitedPoints.length-1]) > 15) {
                 visitedPoints.push(newPos);
-                
-                // Actualizamos el sector para el porcentaje (esto filtrará duplicados automáticamente)
                 addSector(e.latlng.lat, e.latlng.lng);
                 calculatePercentage();
-
                 localStorage.setItem('zelda_map_progress', JSON.stringify(visitedPoints));
                 statusDisplay.innerText = "Sincronizado";
             }
-
             map.panTo(e.latlng);
             drawFog();
         });
 
         function resetProgress() {
             if(confirm("¿Borrar progreso?")) {
-                visitedPoints = [];
-                uniqueSectors.clear();
-                localStorage.removeItem('zelda_map_progress');
-                location.reload();
+                visitedPoints = []; uniqueSectors.clear();
+                localStorage.removeItem('zelda_map_progress'); location.reload();
             }
         }
-
-        map.on('move', drawFog);
-        window.addEventListener('resize', resize);
-        resize();
-
+        map.on('move', drawFog); window.addEventListener('resize', resize); resize();
     </script>
-
+    
     <script>
     if ('serviceWorker' in navigator) {
-      // Forzar actualización al cargar
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) { registration.update(); }
-      });
-      
+      navigator.serviceWorker.getRegistrations().then(function(regs) { for(let reg of regs) { reg.update(); } });
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('https://cdn.jsdelivr.net/npm/pwacompat@2.0.9/pwacompat.min.js');
       });
